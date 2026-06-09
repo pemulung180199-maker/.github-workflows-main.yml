@@ -3,8 +3,8 @@ import pandas as pd
 import requests
 import os
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TELEGRAM_TOKEN = os.getenv("8582961660:AAG8rAa4MlvEd1mILN2tWDFS_940IyA4wc0")
+TELEGRAM_CHAT_ID = os.getenv("7182146237")
 TIMEFRAME = '1h'
 MIN_VOLUME = 10_000_000 
 
