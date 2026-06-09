@@ -3,13 +3,13 @@ import pandas as pd
 import requests
 import os
 
-# Konfigurasi dari Environment Variables (GitHub Secrets)
-TELEGRAM_TOKEN = os.getenv("8582961660:AAG8rAa4MlvEd1mILN2tWDFS_940IyA4wc0")
-TELEGRAM_CHAT_ID = os.getenv("7182146237")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 TIMEFRAME = '1h'
-MIN_VOLUME = 10_000_000  # $10 Juta
+MIN_VOLUME = 10_000_000 
 
-exchange = ccxt.binance({'options': {'defaultType': 'future'}})
+# MENGGUNAKAN BYBIT (Lebih ramah terhadap server GitHub/Cloud)
+exchange = ccxt.bybit({'options': {'defaultType': 'linear'}})
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -17,22 +17,27 @@ def send_telegram(message):
     try:
         requests.post(url, json=payload)
     except Exception as e:
-        print(f"Error kirim Telegram: {e}")
+        print(f"Error: {e}")
 
 def calculate_ema(series, length):
     return series.ewm(span=length, adjust=False).mean()
 
 def get_active_symbols():
-    tickers = exchange.fetch_tickers()
-    symbols = []
-    for symbol, data in tickers.items():
-        if symbol.endswith('/USDT') and data['quoteVolume'] >= MIN_VOLUME:
-            symbols.append(symbol)
-    return symbols
+    try:
+        tickers = exchange.fetch_tickers()
+        symbols = []
+        for symbol, data in tickers.items():
+            # Filter USDT pairs dengan volume > 10jt
+            if symbol.endswith(':USDT') and data['quoteVolume'] >= MIN_VOLUME:
+                symbols.append(symbol)
+        return symbols
+    except Exception as e:
+        print(f"Gagal ambil ticker: {e}")
+        return []
 
 def check_logic():
     symbols = get_active_symbols()
-    print(f"Mengecek {len(symbols)} koin dengan volume > ${MIN_VOLUME}...")
+    print(f"Mengecek {len(symbols)} koin di Bybit...")
     
     for symbol in symbols:
         try:
@@ -44,19 +49,19 @@ def check_logic():
             df['ema55'] = calculate_ema(df['close'], 55)
             df['ema200'] = calculate_ema(df['close'], 200)
             
-            last = df.iloc[-2] # Menggunakan candle yang baru saja closed
-            high, low, close = last['high'], last['low'], last['close']
+            last = df.iloc[-2]
+            high, low = last['high'], last['low']
             emas = {'EMA 21': last['ema21'], 'EMA 55': last['ema55'], 'EMA 200': last['ema200']}
             
             for name, val in emas.items():
                 if low <= val <= high:
-                    msg = (f"🔔 *EMA CROSS ALERT (Futures)*\n\n"
-                           f"Symbol: `{symbol}`\n"
+                    clean_name = symbol.split(':')[0]
+                    msg = (f"🔔 *EMA ALERT (Bybit Futures)*\n\n"
+                           f"Symbol: `{clean_name}`\n"
                            f"Indicator: *{name}*\n"
                            f"Range: {low} - {high}\n"
-                           f"Close: {close}")
+                           f"Close: {last['close']}")
                     send_telegram(msg)
-                    print(f"Sinyal: {symbol} - {name}")
         except:
             continue
 
